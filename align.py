@@ -25,11 +25,10 @@ def align(templ_filename, seqs_filename):
         seqs = {record.id: str(record.seq)
                 for record in SeqIO.parse(fle, 'fasta')}
 
-    # Align, sort and strip indels from file:
-    strip_id_seqs = _strip_indels(_sort(_mem(seqs, templ_filename)),
-                                  templ_filename)
+    # Align and strip indels from file:
+    strip_id_seqs = _strip_indels(_mem(seqs, templ_filename), templ_filename)
 
-    # Align strip indels:
+    # Align and sort strip indels:
     _sort(_mem(strip_id_seqs, templ_filename), 'align.sam')
 
 
@@ -50,12 +49,19 @@ def _mem(seqs, templ_filename, readtype='ont2d'):
     return out_file.name
 
 
-def _sort(in_filename, out_filename=None):
-    '''Sorts SAM file.'''
-    out_filename = tempfile.NamedTemporaryFile(delete=False).name \
-        if out_filename is None else out_filename
+def _sort(in_filename, out_filename):
+    '''Custom sorts SAM file.'''
+    sam_file = pysam.Samfile(in_filename, 'r')
+    out_file = pysam.AlignmentFile(out_filename, 'wh',
+                                   template=sam_file,
+                                   header=sam_file.header)
 
-    pysam.sort('-o', out_filename, in_filename)
+    for read in sorted([read for read in sam_file],
+                       key=lambda x: (-x.query_length,
+                                      x.reference_start)):
+        out_file.write(read)
+
+    out_file.close()
 
     return out_filename
 
