@@ -26,13 +26,16 @@ def align(templ_filename, seqs_filename):
                 for record in SeqIO.parse(fle, 'fasta')}
 
     # Align and strip indels from file:
-    strip_id_seqs = _strip_indels(_mem(seqs, templ_filename), templ_filename)
+    # seqs = _strip_indels(_mem(seqs, templ_filename), templ_filename)
 
-    # Align and sort strip indels:
-    _sort(_mem(strip_id_seqs, templ_filename), 'align.sam')
+    # Align and sort:
+    sam_filename = _sort(_mem(seqs, templ_filename), 'align.sam')
+
+    # Analyse:
+    _analyse(sam_filename, templ_filename)
 
 
-def _mem(seqs, templ_filename, readtype='ont2d'):
+def _mem(seqs, templ_filename, readtype='pacbio'):
     '''Runs BWA MEM.'''
     out_file = tempfile.NamedTemporaryFile(delete=False)
     seq_file = tempfile.NamedTemporaryFile(delete=False)
@@ -43,7 +46,8 @@ def _mem(seqs, templ_filename, readtype='ont2d'):
     SeqIO.write(records, seq_file.name, 'fasta')
 
     with open(out_file.name, 'w') as out:
-        subprocess.call(['bwa', 'mem', '-x', readtype,
+        subprocess.call(['bwa', 'mem',
+                         '-x', readtype,
                          templ_filename, seq_file.name], stdout=out)
 
     return out_file.name
@@ -87,6 +91,35 @@ def _strip_indels(in_filename, templ_filename):
             seqs[read.qname] = seq
 
     return seqs
+
+
+def _analyse(sam_filename, templ_filename):
+    '''Analyses samfile by pileup method.'''
+
+    # Get sam file:
+    sam_file = pysam.AlignmentFile(sam_filename, 'r')
+
+    # Get template sequence:
+    with open(templ_filename, 'rU') as fle:
+        templ_seq = [str(record.seq)
+                     for record in SeqIO.parse(fle, 'fasta')][0]
+
+    aligned_seqs = []
+
+    for read in sam_file:
+        prefix = ''.join(['.'] * read.reference_start)
+        suffix = ''.join(['.'] * (sam_file.lengths[0] -
+                                  read.reference_start -
+                                  len(read.query_alignment_sequence)))
+        aligned_seqs.append(prefix + read.query_alignment_sequence + suffix)
+
+    nucls_per_pos = []
+
+    for pos in map(list, zip(*aligned_seqs)):
+        nucls_per_pos.append([pos.count(nucl) for nucl in 'ACGT'])
+
+    for templ_nulc, pos in zip(templ_seq, nucls_per_pos):
+        print '\t'.join([templ_nulc] + [str(val) for val in pos])
 
 
 def main(args):
