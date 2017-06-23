@@ -1,2 +1,4 @@
 /.project
 /.pydevproject
+/mao-n.fasta.*
+/align.sam.*
