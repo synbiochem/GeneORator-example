@@ -12,6 +12,7 @@ import sys
 import tempfile
 
 from Bio import SeqIO, Seq, SeqRecord
+
 from pysam import AlignmentFile
 
 
