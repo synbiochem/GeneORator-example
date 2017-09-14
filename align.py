@@ -16,7 +16,7 @@ from Bio import SeqIO, Seq, SeqRecord
 from pysam import AlignmentFile
 
 
-def align(templ_filename, seqs_filename):
+def align(templ_filename, seqs_filename, out='align.sam', fmt='fasta'):
     '''Aligns sequences in barcoded bins.'''
     # Index template:
     subprocess.call(['bwa', 'index', templ_filename])
@@ -24,10 +24,10 @@ def align(templ_filename, seqs_filename):
     # Read sequences:
     with open(seqs_filename, 'rU') as fle:
         seqs = {record.id: str(record.seq)
-                for record in SeqIO.parse(fle, 'fasta')}
+                for record in SeqIO.parse(fle, fmt)}
 
     # Align and sort:
-    _sort(_mem(seqs, templ_filename), 'align.sam')
+    _sort(_mem(seqs, templ_filename), out)
 
 
 def _mem(seqs, templ_filename, readtype='pacbio'):
@@ -67,7 +67,7 @@ def _sort(in_filename, out_filename):
 
 def main(args):
     '''main method.'''
-    align(args[0], args[1])
+    align(*args)
 
 
 if __name__ == '__main__':
